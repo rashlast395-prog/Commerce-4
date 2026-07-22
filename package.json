@@ -1,0 +1,25 @@
+{
+  "name": "richys-eat",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Richy's Eat - multi-restaurant e-commerce marketplace (customer, admin, rider apps + backend + AI service)",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/backend"
+  ],
+  "scripts": {
+    "dev:customer": "npm run dev --workspace=apps/customer-web",
+    "dev:admin": "npm run dev --workspace=apps/admin-web",
+    "dev:rider": "npm run dev --workspace=apps/rider-web",
+    "build:customer": "npm run build --workspace=apps/customer-web",
+    "build:admin": "npm run build --workspace=apps/admin-web",
+    "build:rider": "npm run build --workspace=apps/rider-web",
+    "build:all": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

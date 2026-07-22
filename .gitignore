@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.local
+.DS_Store
+coverage/
+*.log
+.firebase/
+firebase-debug.log
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

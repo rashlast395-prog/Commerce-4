@@ -1,0 +1,144 @@
+rules_version = '2';
+
+// NOTE: role is read from the custom claim on the caller's ID token
+// (request.auth.token.role), set by the backend via firebase-admin
+// after /auth/bootstrap and role-assignment calls — never trust a
+// role field written directly by the client into Firestore.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return isSignedIn() ? request.auth.token.role : null;
+    }
+
+    function isPlatformAdmin() {
+      return role() == 'platform_admin';
+    }
+
+    function isOwnerOfRestaurant(restaurantId) {
+      return isSignedIn() &&
+        (role() == 'restaurant_owner' || role() == 'restaurant_staff') &&
+        restaurantId in request.auth.token.restaurantIds;
+    }
+
+    function isRider() {
+      return role() == 'rider';
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---------------- users ----------------
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isPlatformAdmin();
+      // Users cannot write their own role/restaurantIds — only the backend
+      // (using the Admin SDK, which bypasses these rules) may do that.
+      allow create: if isSelf(userId);
+      allow update: if isSelf(userId) &&
+        !('role' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('restaurantIds' in request.resource.data.diff(resource.data).affectedKeys());
+      allow delete: if false;
+    }
+
+    // ---------------- restaurants ----------------
+    match /restaurants/{restaurantId} {
+      allow read: if resource.data.status == 'approved' || isPlatformAdmin() || isOwnerOfRestaurant(restaurantId);
+      allow create: if isPlatformAdmin(); // onboarding flow is admin-approved
+      allow update: if isPlatformAdmin() || isOwnerOfRestaurant(restaurantId);
+      allow delete: if isPlatformAdmin();
+
+      match /menuItems/{itemId} {
+        allow read: if true; // public menu browsing
+        allow write: if isPlatformAdmin() || isOwnerOfRestaurant(restaurantId);
+      }
+    }
+
+    // ---------------- orders ----------------
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.riderId == request.auth.uid ||
+        isOwnerOfRestaurant(resource.data.restaurantId) ||
+        isPlatformAdmin()
+      );
+      // Order writes (creation, status transitions) go through the backend
+      // only, so it can validate the state machine and compute totals/commission.
+      allow write: if false;
+    }
+
+    // ---------------- riders ----------------
+    match /riders/{riderId} {
+      allow read: if isSignedIn();
+      allow update: if isSelf(riderId) || isPlatformAdmin();
+      allow create: if isPlatformAdmin();
+      allow delete: if isPlatformAdmin();
+    }
+
+    // ---------------- reservations ----------------
+    match /reservations/{reservationId} {
+      allow read: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        isOwnerOfRestaurant(resource.data.restaurantId) ||
+        isPlatformAdmin()
+      );
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update: if isOwnerOfRestaurant(resource.data.restaurantId) ||
+        (resource.data.customerId == request.auth.uid) || isPlatformAdmin();
+      allow delete: if isPlatformAdmin();
+    }
+
+    // ---------------- reviews ----------------
+    match /reviews/{reviewId} {
+      allow read: if true; // public
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update: if false; // reviews are immutable once posted
+      allow delete: if isPlatformAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+    }
+
+    // ---------------- inventory ----------------
+    match /inventory/{restaurantId}/items/{itemId} {
+      allow read: if isOwnerOfRestaurant(restaurantId) || isPlatformAdmin();
+      allow write: if isOwnerOfRestaurant(restaurantId) || isPlatformAdmin();
+    }
+
+    // ---------------- notifications ----------------
+    match /notifications/{userId}/items/{notificationId} {
+      allow read: if isSelf(userId);
+      allow update: if isSelf(userId); // e.g. marking as read
+      allow write: if false; // creation is backend-only
+    }
+
+    // ---------------- conversations & messages ----------------
+    match /conversations/{conversationId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow write: if false; // backend-managed
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow create: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------------- payments ----------------
+    match /payments/{paymentId} {
+      allow read: if isPlatformAdmin() ||
+        (isSignedIn() && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId == request.auth.uid);
+      allow write: if false; // backend-only (payment provider webhooks)
+    }
+
+    // ---------------- activityLogs ----------------
+    match /activityLogs/{logId} {
+      allow read: if isPlatformAdmin();
+      allow write: if false; // backend-only
+    }
+  }
+}
