@@ -11,8 +11,22 @@
  * you'll want a real uid (from your own signed-up account) before testing
  * the restaurant_owner dashboard in Phase 3.
  */
-import "dotenv/config";
+
+declare const process: {
+  argv: string[];
+  env: Record<string, string | undefined>;
+  exit(code?: number): never;
+};
+
 import { initFirebaseAdmin, getFirestore } from "../src/config/firebase.js";
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // @ts-ignore
+  require("dotenv").config();
+} catch {
+  // dotenv may not be installed in some environments; continue with process.env
+}
 
 async function main() {
   initFirebaseAdmin();

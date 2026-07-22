@@ -1,8 +1,8 @@
 import logging
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request  # type: ignore[import]
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore[import]
+from fastapi.responses import JSONResponse  # type: ignore[import]
 
 from app.config import settings
 from app.routes.analytics import router as analytics_router
