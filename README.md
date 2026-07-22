@@ -76,3 +76,4 @@ docker compose up --build
 All 9 phases from the original roadmap are built: auth, restaurant browsing/menus/cart/checkout, admin + rider dashboards, Paystack/Flutterwave payment integration (code complete, untested against live APIs — see `docs/ASSUMPTIONS.md` #11), notifications + messaging (backend complete, chat UI not built — #12), reservations (customer-side UI, owner-side pending — #13), AI analytics (tested logic, no dashboard UI — #14), and PWA support (customer-web only — #16).
 
 Read `docs/ASSUMPTIONS.md` before you rely on any of this in production — it's the single most important file in this repo for understanding what's genuinely done vs. what compiles but has never touched a live Firebase project, live payment gateway, or live traffic.
+all done
